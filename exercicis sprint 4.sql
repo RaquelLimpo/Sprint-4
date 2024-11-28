@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS companies (
 CREATE TABLE IF NOT EXISTS transactions (
 	id VARCHAR(255) PRIMARY KEY,
 	card_id VARCHAR(15) REFERENCES credit_card(id),
-	business_id VARCHAR(15)REFERENCES companies(id), 
+	business_id VARCHAR(15) REFERENCES companies(id), 
     timestamp TIMESTAMP,
 	amount DECIMAL(10,2),
 	declined BOOLEAN,
@@ -46,7 +46,7 @@ CREATE TABLE credit_cards (
 
 #products
 CREATE TABLE IF NOT EXISTS products (
-	id INT PRIMARY KEY,
+	id VARCHAR(20) PRIMARY KEY,
 	product_name TEXT NOT NULL ,
 	price FLOAT NOT NULL ,
     colour VARCHAR(20),
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS products (
 
 #users
 CREATE TABLE IF NOT EXISTS users (
-	id INT PRIMARY KEY,
+	id VARCHAR(20) PRIMARY KEY,
 	name VARCHAR(100),
 	surname VARCHAR(100),
 	phone VARCHAR(150),
@@ -183,3 +183,12 @@ FROM (
     LIMIT 3
 ) transactions
 GROUP BY transactions.card_id;
+
+#				*****Nivell 3*****
+#Exercici 1: Necessitem conèixer el nombre de vegades que s'ha venut cada producte.
+CREATE TABLE bridge_products (
+	transactions_id VARCHAR(100) PRIMARY KEY,
+	products_id VARCHAR(100) NOT NULL,
+    FOREIGN KEY (transactions_id) REFERENCES transactions(id),
+    FOREIGN KEY (products_id) REFERENCES products(id)
+);
