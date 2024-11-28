@@ -187,8 +187,18 @@ GROUP BY transactions.card_id;
 #				*****Nivell 3*****
 #Exercici 1: Necessitem conèixer el nombre de vegades que s'ha venut cada producte.
 CREATE TABLE bridge_products (
-	transactions_id VARCHAR(100) PRIMARY KEY,
-	products_id VARCHAR(100) NOT NULL,
+	transactions_id VARCHAR(100),
+	products_id VARCHAR(100),
     FOREIGN KEY (transactions_id) REFERENCES transactions(id),
     FOREIGN KEY (products_id) REFERENCES products(id)
 );
+
+INSERT INTO bridge_products (transactions_id, products_id) 
+SELECT transactions.id AS transactions_id, products.id AS products_id
+FROM transactions
+JOIN products
+ON FIND_IN_SET(products.id, REPLACE(transactions.product_ids, ' ', '')) > 0;
+
+SELECT products_id, COUNT(*) AS num_ventas
+FROM bridge_products
+GROUP BY products_id;
