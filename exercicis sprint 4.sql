@@ -3,8 +3,8 @@
 # almenys 4 taules de les quals puguis realitzar les següents consultes:
 
 -- Creamos la base de datos
-CREATE DATABASE IF NOT EXISTS transactions;
-USE transactions;
+CREATE DATABASE IF NOT EXISTS transactions_s4;
+USE transactions_s4;
 
     -- Creamos las tablas
 #companies
@@ -21,12 +21,12 @@ CREATE TABLE IF NOT EXISTS companies (
 CREATE TABLE IF NOT EXISTS transactions (
 	id VARCHAR(255) PRIMARY KEY,
 	card_id VARCHAR(15) REFERENCES credit_card(id),
-	business_id VARCHAR(15), 
+	business_id VARCHAR(15)REFERENCES companies(id), 
     timestamp TIMESTAMP,
 	amount DECIMAL(10,2),
 	declined BOOLEAN,
 	product_ids VARCHAR(25),
-	user_id VARCHAR(5),
+	user_id VARCHAR(5) REFERENCES users(id),
 	lat FLOAT,
 	longitude FLOAT
     );
@@ -44,8 +44,8 @@ CREATE TABLE credit_cards (
 	expiring_date VARCHAR(20) NOT NULL
 );
 
-#product
-CREATE TABLE IF NOT EXISTS product (
+#products
+CREATE TABLE IF NOT EXISTS products (
 	id INT PRIMARY KEY,
 	product_name TEXT NOT NULL ,
 	price FLOAT NOT NULL ,
@@ -54,8 +54,8 @@ CREATE TABLE IF NOT EXISTS product (
 	warehouse_id VARCHAR(20) NOT NULL 
 );
 
-#user_ca
-CREATE TABLE IF NOT EXISTS users_ca (
+#users
+CREATE TABLE IF NOT EXISTS users (
 	id INT PRIMARY KEY,
 	name VARCHAR(100),
 	surname VARCHAR(100),
@@ -68,37 +68,12 @@ CREATE TABLE IF NOT EXISTS users_ca (
 	address VARCHAR(255)
     );
 
-#user_uk
-CREATE TABLE IF NOT EXISTS users_uk (
-	id INT PRIMARY KEY,
-	name VARCHAR(100),
-	surname VARCHAR(100),
-	phone VARCHAR(150),
-	email VARCHAR(150),
-	birth_date VARCHAR(100),
-	country VARCHAR(150),
-	city VARCHAR(150),
-	postal_code VARCHAR(100),
-	address VARCHAR(255)
-    );
-    
-#user_usa
-CREATE TABLE IF NOT EXISTS users_usa (
-	id INT PRIMARY KEY,
-    name VARCHAR(100),
-    surname VARCHAR(100),
-    phone VARCHAR(150),
-    email VARCHAR(150),
-    birth_date VARCHAR(100),
-    country VARCHAR(150),
-	city VARCHAR(150),
-    postal_code VARCHAR(100),
-    address VARCHAR(255)
-    );
+
+SHOW VARIABLES LIKE 'secure_file_priv';
 
 #cargar archivos csv. 
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/products.csv'
-INTO TABLE product
+INTO TABLE products
 FIELDS TERMINATED BY ',' 
 LINES TERMINATED BY '\n'
 IGNORE 1 ROWS
@@ -127,21 +102,21 @@ LINES TERMINATED BY '\n'
 IGNORE 1 ROWS;
 
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/users_ca.csv'
-INTO TABLE users_ca
+INTO TABLE users
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n'
 IGNORE 1 ROWS;
 
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/users_uk.csv'
-INTO TABLE users_uk
+INTO TABLE users
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n'
 IGNORE 1 ROWS;
 
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/users_usa.csv'
-INTO TABLE users_usa
+INTO TABLE users
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n'
@@ -156,30 +131,19 @@ CREATE INDEX idx_credit_cards
 CREATE INDEX idx_users
 	ON transactions(user_id);
     
-ALTER TABLE companies
-	ADD FOREIGN KEY (id) REFERENCES transactions(business_id);
-    
-ALTER TABLE credit_cards
-	ADD FOREIGN KEY (id) REFERENCES transactions(card_id);
+
  
 #Exercici 1: #Realitza una subconsulta que mostri tots els usuaris amb més de 30 transaccions
 #utilitzant almenys 2 taules.
 
 SELECT 
-    users.id,
-    CONCAT(users.name, ' ', users.surname) AS full_name,
-    COUNT(transactions.id) AS transactions_count
-FROM (
-    SELECT * FROM users_ca
-    UNION ALL
-    SELECT * FROM users_uk
-    UNION ALL
-    SELECT * FROM users_usa
-) users
+    users.id, users.name, users.surname,
+    COUNT(transactions.id) AS num_transacciones
+FROM users
 JOIN transactions 
     ON users.id = transactions.user_id
 GROUP BY users.id, users.name, users.surname
-HAVING transactions_count > 30;
+HAVING num_transacciones > 30;
 
 #Exercici 2: Mostra la mitjana d'amount per IBAN de les targetes de crèdit a la companyia Donec Ltd, 
 #utilitza almenys 2 taules.
@@ -190,7 +154,7 @@ SELECT credit_cards.iban,companies.company_name,
 JOIN transactions 
 	ON credit_cards.id = transactions.card_id
 JOIN companies
-	ON transactions.business_id = companies.company_id
+	ON transactions.business_id = companies.id
 WHERE companies.company_name = 'Donec Ltd'
 GROUP BY credit_cards.iban;
 
@@ -219,13 +183,3 @@ FROM (
     LIMIT 3
 ) transactions
 GROUP BY transactions.card_id;
-
-#				*****Nivell 3*****
-#Exercici 1: Necessitem conèixer el nombre de vegades que s'ha venut cada producte.
-SELECT product.product_name,
-COUNT(transactions.product_ids) AS sales_count
-FROM product
-JOIN transactions ON product.id = transactions.product_ids
-GROUP BY product.product_name
-ORDER BY sales_count DESC
-;
