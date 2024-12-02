@@ -9,7 +9,7 @@ USE transactions_s4;
     -- Creamos las tablas
 #companies
 CREATE TABLE IF NOT EXISTS companies (
-	id VARCHAR(15) PRIMARY KEY,
+	company_id VARCHAR(15) PRIMARY KEY,
 	company_name VARCHAR(255),
 	phone VARCHAR(15),
 	email VARCHAR(100),
@@ -48,7 +48,7 @@ CREATE TABLE credit_cards (
 CREATE TABLE IF NOT EXISTS products (
 	id VARCHAR(20) PRIMARY KEY,
 	product_name TEXT NOT NULL ,
-	price FLOAT NOT NULL ,
+	price DECIMAL (10,2),
     colour VARCHAR(20),
     weight VARCHAR(20),
 	warehouse_id VARCHAR(20) NOT NULL 
@@ -80,12 +80,18 @@ IGNORE 1 ROWS
 (id, product_name, @price_raw, colour, weight, warehouse_id)
 SET price = REPLACE(@price_raw, '$', '');
 
+#comprobamos que se ha cargado la tabla
+SELECT * FROM transactions_s4.products;
+
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/companies.csv'
 INTO TABLE companies
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 IGNORE 1 ROWS ;
+
+#comprobamos que se ha cargado la tabla
+SELECT * FROM transactions_s4.companies;
 
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/credit_cards.csv'
 INTO TABLE credit_cards
@@ -94,12 +100,18 @@ OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 IGNORE 1 ROWS;
 
+#comprobamos que se ha cargado la tabla
+SELECT * FROM transactions_s4.credit_cards;
+
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/transactions.csv'
 INTO TABLE transactions
 FIELDS TERMINATED BY ';' 
 OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 IGNORE 1 ROWS;
+
+#comprobamos que se ha cargado la tabla
+SELECT * FROM transactions_s4.transactions;
 
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/users_ca.csv'
 INTO TABLE users
@@ -121,7 +133,10 @@ FIELDS TERMINATED BY ','
 OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\r\n'
 IGNORE 1 ROWS;
+#comprobamos que se ha cargado la tabla unificada users
+SELECT * FROM transactions_s4.users;
 
+#Creamos los indices: 
 CREATE INDEX idx_companies
 	ON transactions(business_id);
     
@@ -143,20 +158,20 @@ FROM users
 JOIN transactions 
     ON users.id = transactions.user_id
 GROUP BY users.id, users.name, users.surname
-HAVING num_transacciones > 30;
+HAVING num_transacciones >= 25;
 
 #Exercici 2: Mostra la mitjana d'amount per IBAN de les targetes de crèdit a la companyia Donec Ltd, 
 #utilitza almenys 2 taules.
 
-SELECT credit_cards.iban,companies.company_name,
+SELECT iban,company_name,
    ROUND(AVG(amount),2)AS average_amount
    FROM credit_cards 
 JOIN transactions 
-	ON credit_cards.id = transactions.card_id
+	ON credit_cards.id = card_id
 JOIN companies
-	ON transactions.business_id = companies.id
-WHERE companies.company_name = 'Donec Ltd'
-GROUP BY credit_cards.iban;
+	ON business_id = company_id
+WHERE company_name = 'Donec Ltd'
+GROUP BY iban;
 
 
 #					*****Nivell 2*****
@@ -180,9 +195,10 @@ FROM (
     SELECT card_id, declined
     FROM transactions
     ORDER BY timestamp DESC
-    LIMIT 3
 ) transactions
 GROUP BY transactions.card_id;
+
+SELECT * FROM transactions_s4.credit_card_status;
 
 #				*****Nivell 3*****
 #Exercici 1: Necessitem conèixer el nombre de vegades que s'ha venut cada producte.
@@ -197,7 +213,8 @@ INSERT INTO bridge_products (transactions_id, products_id)
 SELECT transactions.id AS transactions_id, products.id AS products_id
 FROM transactions
 JOIN products
-ON FIND_IN_SET(products.id, REPLACE(transactions.product_ids, ' ', '')) > 0;
+ON FIND_IN_SET(products.id, REPLACE(transactions.product_ids, ' ', '')) > 0
+WHERE declined = 0;
 
 SELECT products_id, COUNT(*) AS num_ventas
 FROM bridge_products
