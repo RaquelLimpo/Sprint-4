@@ -179,29 +179,42 @@ GROUP BY iban;
 #basat en si les últimes tres transaccions van ser declinades i genera la següent consulta:
 #Quantes targetes estan actives?
 
+
 CREATE TABLE credit_card_status (
     card_id VARCHAR(15) PRIMARY KEY,
-    status VARCHAR(15) NOT NULL
+    status VARCHAR(15) NOT NULL,
+    FOREIGN KEY (card_id) REFERENCES transactions(card_id)
 );
 
-INSERT INTO credit_card_status (card_id, status)
-SELECT 
-    transactions.card_id,
-    CASE 
-        WHEN SUM(CASE WHEN transactions.declined THEN 1 ELSE 0 END) = 3 THEN 'Inactiva'
-        ELSE 'Activa'
-    END AS status
-FROM (
-    SELECT card_id, declined
-    FROM transactions
-    ORDER BY timestamp DESC
-) transactions
-GROUP BY transactions.card_id;
+CREATE INDEX idx_status ON credit_card_status (status);
 
-SELECT * FROM transactions_s4.credit_card_status;
+INSERT INTO credit_card_status (card_id, status)
+WITH card_transactions AS (
+    SELECT card_id, 
+           timestamp, 
+           declined, 
+           ROW_NUMBER() OVER (PARTITION BY card_id ORDER BY timestamp DESC) AS row_transaction
+    FROM transactions
+)
+SELECT card_id,
+       CASE 
+           WHEN SUM(declined) <= 2 THEN 'active'
+           ELSE 'inactive'
+       END AS status
+FROM card_transactions
+WHERE row_transaction <= 3 
+GROUP BY card_id;
+
+SELECT card_id, status
+FROM credit_card_status;
+
+SELECT COUNT(*) AS active_cards
+FROM credit_card_status
+WHERE status = 'active';
 
 #				*****Nivell 3*****
 #Exercici 1: Necessitem conèixer el nombre de vegades que s'ha venut cada producte.
+	
 CREATE TABLE bridge_products (
 	transactions_id VARCHAR(100),
 	products_id VARCHAR(100),
@@ -213,9 +226,13 @@ INSERT INTO bridge_products (transactions_id, products_id)
 SELECT transactions.id AS transactions_id, products.id AS products_id
 FROM transactions
 JOIN products
-ON FIND_IN_SET(products.id, REPLACE(transactions.product_ids, ' ', '')) > 0
-WHERE declined = 0;
+ON FIND_IN_SET(products.id, REPLACE(transactions.product_ids, ' ', '')) > 0;
+
+SELECT * FROM transactions_s4.bridge_products;
 
 SELECT products_id, COUNT(*) AS num_ventas
 FROM bridge_products
-GROUP BY products_id;
+JOIN transactions ON transactions_id = transactions.id
+WHERE declined = 0
+GROUP BY products_id
+ORDER BY num_ventas DESC;
