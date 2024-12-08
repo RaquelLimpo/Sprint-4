@@ -47,11 +47,11 @@ CREATE TABLE credit_cards (
 #products
 CREATE TABLE IF NOT EXISTS products (
 	id VARCHAR(20) PRIMARY KEY,
-	product_name TEXT NOT NULL ,
+	product_name VARCHAR(100) ,
 	price DECIMAL (10,2),
-    colour VARCHAR(20),
-    weight VARCHAR(20),
-	warehouse_id VARCHAR(20) NOT NULL 
+    	colour VARCHAR(20),
+   	 weight VARCHAR(20),
+	warehouse_id VARCHAR(20) 
 );
 
 #users
