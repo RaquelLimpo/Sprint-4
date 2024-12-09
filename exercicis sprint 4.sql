@@ -56,11 +56,11 @@ SELECT * FROM transactions_s4.credit_cards;
    -- Creamos la tabla products y la cargamos
 CREATE TABLE IF NOT EXISTS products (
 	id VARCHAR(20) PRIMARY KEY,
-	product_name TEXT NOT NULL ,
+	product_name VARCHAR(255),
 	price DECIMAL (10,2),
     colour VARCHAR(20),
     weight VARCHAR(20),
-	warehouse_id VARCHAR(20) NOT NULL 
+	warehouse_id VARCHAR(20)
 );
 
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/products.csv'
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 	id VARCHAR(255) PRIMARY KEY,
 	card_id VARCHAR(15) ,
 	business_id VARCHAR(15), 
-   	timestamp TIMESTAMP,
+    timestamp TIMESTAMP,
 	amount DECIMAL(10,2),
 	declined BOOLEAN,
 	product_ids VARCHAR(25),
@@ -134,7 +134,6 @@ FIELDS TERMINATED BY ';'
 OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 IGNORE 1 ROWS;
-
 #comprobamos que se ha cargado la tabla
 SELECT * FROM transactions_s4.transactions;
 
@@ -148,18 +147,26 @@ CREATE INDEX idx_credit_cards
 CREATE INDEX idx_users
 	ON transactions(user_id);
     
- 
 #Exercici 1: #Realitza una subconsulta que mostri tots els usuaris amb més de 30 transaccions
 #utilitzant almenys 2 taules.
 
+SELECT users.id, name, surname
+FROM users
+WHERE id IN (SELECT user_id 
+             FROM transactions
+             GROUP BY user_id
+             HAVING COUNT(id)>30)
+ORDER BY users.id ASC; 
+
+#opcion join
 SELECT 
-    users.id, users.name, users.surname,
+    users.id, name, surname,
     COUNT(transactions.id) AS num_transacciones
 FROM users
 JOIN transactions 
-    ON users.id = transactions.user_id
-GROUP BY users.id, users.name, users.surname
-HAVING num_transacciones >= 25;
+    ON users.id = user_id
+GROUP BY users.id, name, surname
+HAVING num_transacciones > 30;
 
 #Exercici 2: Mostra la mitjana d'amount per IBAN de les targetes de crèdit a la companyia Donec Ltd, 
 #utilitza almenys 2 taules.
@@ -180,38 +187,32 @@ GROUP BY iban;
 #basat en si les últimes tres transaccions van ser declinades i genera la següent consulta:
 #Quantes targetes estan actives?
 
-
 CREATE TABLE credit_card_status (
     card_id VARCHAR(15) PRIMARY KEY,
     status VARCHAR(15) NOT NULL,
-    FOREIGN KEY (card_id) REFERENCES transactions(card_id)
+	FOREIGN KEY (card_id) REFERENCES credit_cards(id)
 );
 
-CREATE INDEX idx_status ON credit_card_status (status);
-
 INSERT INTO credit_card_status (card_id, status)
-WITH card_transactions AS (
-    SELECT card_id, 
-           timestamp, 
-           declined, 
-           ROW_NUMBER() OVER (PARTITION BY card_id ORDER BY timestamp DESC) AS row_transaction
+SELECT 
+    transactions.card_id,
+    CASE 
+        WHEN SUM(CASE WHEN declined THEN 1 ELSE 0 END) = 3 THEN 'Inactiva'
+        ELSE 'Activa'
+    END AS status
+FROM (
+    SELECT card_id, declined
     FROM transactions
-)
-SELECT card_id,
-       CASE 
-           WHEN SUM(declined) <= 2 THEN 'active'
-           ELSE 'inactive'
-       END AS status
-FROM card_transactions
-WHERE row_transaction <= 3 
+    ORDER BY timestamp DESC
+) transactions
 GROUP BY card_id;
 
-SELECT card_id, status
-FROM credit_card_status;
+SELECT * FROM transactions_s4.credit_card_status;
 
 SELECT COUNT(*) AS active_cards
 FROM credit_card_status
-WHERE status = 'active';
+WHERE status = 'activa';
+
 
 #				*****Nivell 3*****
 #Exercici 1: Necessitem conèixer el nombre de vegades que s'ha venut cada producte.
@@ -219,9 +220,10 @@ WHERE status = 'active';
 CREATE TABLE bridge_products (
 	transactions_id VARCHAR(100),
 	products_id VARCHAR(100),
-    FOREIGN KEY (transactions_id) REFERENCES transactions(id),
-    FOREIGN KEY (products_id) REFERENCES products(id)
-);
+	FOREIGN KEY (transactions_id) REFERENCES transactions(id),
+    	FOREIGN KEY (products_id) REFERENCES products(id),
+    	primary key(transactions_id, products_id)
+	);
 
 INSERT INTO bridge_products (transactions_id, products_id) 
 SELECT transactions.id AS transactions_id, products.id AS products_id
