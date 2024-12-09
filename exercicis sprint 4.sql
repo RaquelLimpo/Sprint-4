@@ -58,8 +58,8 @@ CREATE TABLE IF NOT EXISTS products (
 	id VARCHAR(20) PRIMARY KEY,
 	product_name VARCHAR(255),
 	price DECIMAL (10,2),
-    colour VARCHAR(20),
-    weight VARCHAR(20),
+    	colour VARCHAR(20),
+   	 weight VARCHAR(20),
 	warehouse_id VARCHAR(20)
 );
 
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 	id VARCHAR(255) PRIMARY KEY,
 	card_id VARCHAR(15) ,
 	business_id VARCHAR(15), 
-    timestamp TIMESTAMP,
+    	timestamp TIMESTAMP,
 	amount DECIMAL(10,2),
 	declined BOOLEAN,
 	product_ids VARCHAR(25),
@@ -189,9 +189,11 @@ GROUP BY iban;
 
 CREATE TABLE credit_card_status (
     card_id VARCHAR(15) PRIMARY KEY,
-    status VARCHAR(15) NOT NULL,
-	FOREIGN KEY (card_id) REFERENCES credit_cards(id)
+    status VARCHAR(15) NOT NULL
 );
+ALTER TABLE credit_cards
+ADD FOREIGN KEY (id) REFERENCES credit_card_status (card_id);
+
 
 INSERT INTO credit_card_status (card_id, status)
 SELECT 
@@ -216,14 +218,12 @@ WHERE status = 'activa';
 
 #				*****Nivell 3*****
 #Exercici 1: Necessitem conèixer el nombre de vegades que s'ha venut cada producte.
-	
 CREATE TABLE bridge_products (
 	transactions_id VARCHAR(100),
 	products_id VARCHAR(100),
 	FOREIGN KEY (transactions_id) REFERENCES transactions(id),
     	FOREIGN KEY (products_id) REFERENCES products(id),
-    	primary key(transactions_id, products_id)
-	);
+    	primary key(transactions_id, products_id));
 
 INSERT INTO bridge_products (transactions_id, products_id) 
 SELECT transactions.id AS transactions_id, products.id AS products_id
@@ -231,7 +231,9 @@ FROM transactions
 JOIN products
 ON FIND_IN_SET(products.id, REPLACE(transactions.product_ids, ' ', '')) > 0;
 
-SELECT * FROM transactions_s4.bridge_products;
+SELECT products_id, COUNT(*) AS num_ventas
+FROM bridge_products
+GROUP BY products_id;
 
 SELECT products_id, COUNT(*) AS num_ventas
 FROM bridge_products
