@@ -5,8 +5,10 @@
 -- Creamos la base de datos
 CREATE DATABASE IF NOT EXISTS transactions_s4;
 USE transactions_s4;
+-- buscamos la carpeta donde colocar los archivos csv
+SHOW VARIABLES LIKE 'secure_file_priv';
 
-    -- Creamos las tablas
+    -- Creamos la tabla companies y la cargamos 
 #companies
 CREATE TABLE IF NOT EXISTS companies (
 	company_id VARCHAR(15) PRIMARY KEY,
@@ -17,20 +19,17 @@ CREATE TABLE IF NOT EXISTS companies (
 	website VARCHAR(255)
 );
 
-# transactions
-CREATE TABLE IF NOT EXISTS transactions (
-	id VARCHAR(255) PRIMARY KEY,
-	card_id VARCHAR(15) REFERENCES credit_card(id),
-	business_id VARCHAR(15) REFERENCES companies(id), 
-    timestamp TIMESTAMP,
-	amount DECIMAL(10,2),
-	declined BOOLEAN,
-	product_ids VARCHAR(25),
-	user_id VARCHAR(5) REFERENCES users(id),
-	lat FLOAT,
-	longitude FLOAT
-    );
+LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/companies.csv'
+INTO TABLE companies
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS ;
 
+#comprobamos que se ha cargado la tabla
+SELECT * FROM transactions_s4.companies;
+
+    -- Creamos la tabla credit_cards y la cargamos 
 #credit_cards
 CREATE TABLE credit_cards (
 	id VARCHAR(20) PRIMARY KEY,
@@ -44,17 +43,38 @@ CREATE TABLE credit_cards (
 	expiring_date VARCHAR(20) NOT NULL
 );
 
-#products
+LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/credit_cards.csv'
+INTO TABLE credit_cards
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+#comprobamos que se ha cargado la tabla
+SELECT * FROM transactions_s4.credit_cards;
+
+   -- Creamos la tabla products y la cargamos
 CREATE TABLE IF NOT EXISTS products (
 	id VARCHAR(20) PRIMARY KEY,
-	product_name VARCHAR(100) ,
+	product_name TEXT NOT NULL ,
 	price DECIMAL (10,2),
-    	colour VARCHAR(20),
-   	 weight VARCHAR(20),
-	warehouse_id VARCHAR(20) 
+    colour VARCHAR(20),
+    weight VARCHAR(20),
+	warehouse_id VARCHAR(20) NOT NULL 
 );
 
-#users
+LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/products.csv'
+INTO TABLE products
+FIELDS TERMINATED BY ',' 
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS
+(id, product_name, @price_raw, colour, weight, warehouse_id)
+SET price = REPLACE(@price_raw, '$', '');
+
+#comprobamos que se ha cargado la tabla
+SELECT * FROM transactions_s4.products;
+
+   -- Creamos la tabla users y la cargamos 
 CREATE TABLE IF NOT EXISTS users (
 	id VARCHAR(20) PRIMARY KEY,
 	name VARCHAR(100),
@@ -67,52 +87,7 @@ CREATE TABLE IF NOT EXISTS users (
 	postal_code VARCHAR(100),
 	address VARCHAR(255)
     );
-
-
-SHOW VARIABLES LIKE 'secure_file_priv';
-
-#cargar archivos csv. 
-LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/products.csv'
-INTO TABLE products
-FIELDS TERMINATED BY ',' 
-LINES TERMINATED BY '\n'
-IGNORE 1 ROWS
-(id, product_name, @price_raw, colour, weight, warehouse_id)
-SET price = REPLACE(@price_raw, '$', '');
-
-#comprobamos que se ha cargado la tabla
-SELECT * FROM transactions_s4.products;
-
-LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/companies.csv'
-INTO TABLE companies
-FIELDS TERMINATED BY ',' 
-OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n'
-IGNORE 1 ROWS ;
-
-#comprobamos que se ha cargado la tabla
-SELECT * FROM transactions_s4.companies;
-
-LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/credit_cards.csv'
-INTO TABLE credit_cards
-FIELDS TERMINATED BY ',' 
-OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n'
-IGNORE 1 ROWS;
-
-#comprobamos que se ha cargado la tabla
-SELECT * FROM transactions_s4.credit_cards;
-
-LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/transactions.csv'
-INTO TABLE transactions
-FIELDS TERMINATED BY ';' 
-OPTIONALLY ENCLOSED BY '"'
-LINES TERMINATED BY '\n'
-IGNORE 1 ROWS;
-
-#comprobamos que se ha cargado la tabla
-SELECT * FROM transactions_s4.transactions;
-
+    
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/users_ca.csv'
 INTO TABLE users
 FIELDS TERMINATED BY ',' 
@@ -136,6 +111,33 @@ IGNORE 1 ROWS;
 #comprobamos que se ha cargado la tabla unificada users
 SELECT * FROM transactions_s4.users;
 
+   -- Creamos la tabla transactions y la cargamos 
+CREATE TABLE IF NOT EXISTS transactions (
+	id VARCHAR(255) PRIMARY KEY,
+	card_id VARCHAR(15) ,
+	business_id VARCHAR(15), 
+   	timestamp TIMESTAMP,
+	amount DECIMAL(10,2),
+	declined BOOLEAN,
+	product_ids VARCHAR(25),
+	user_id VARCHAR(5),
+	lat FLOAT,
+	longitude FLOAT,
+	FOREIGN KEY (business_id) REFERENCES companies(company_id), 
+	FOREIGN KEY (card_id) REFERENCES credit_cards(id),
+	FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+    
+LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/transactions.csv'
+INTO TABLE transactions
+FIELDS TERMINATED BY ';' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+#comprobamos que se ha cargado la tabla
+SELECT * FROM transactions_s4.transactions;
+
 #Creamos los indices: 
 CREATE INDEX idx_companies
 	ON transactions(business_id);
@@ -146,7 +148,6 @@ CREATE INDEX idx_credit_cards
 CREATE INDEX idx_users
 	ON transactions(user_id);
     
-
  
 #Exercici 1: #Realitza una subconsulta que mostri tots els usuaris amb més de 30 transaccions
 #utilitzant almenys 2 taules.
